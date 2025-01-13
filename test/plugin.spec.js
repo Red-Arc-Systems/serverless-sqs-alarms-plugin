@@ -1,301 +1,299 @@
-'use strict'
+'use strict';
 
-const Plugin = require('../')
+const Plugin = require('../');
 
-it('creates CloudFormation configuration', () => {
-  let config = {
-    getProvider: () => ({ getRegion: () => 'test-region' }),
-    service: {
-      custom: {
-        'sqs-alarms': [
-          { queue: 'test-queue',
-            topic: 'test-topic',
-            thresholds: [1, 2, 3]
-          }
-        ]
-      },
-      provider: {
-        compiledCloudFormationTemplate: {
-          Resources: {}
-        }
-      }
-    }
-  }
+describe('SQS Alarms Plugin', () => {
+    let config;
 
-  const test = new Plugin(config)
-  test.beforeDeployResources()
+    beforeEach(() => {
+        config = {
+            getProvider: () => ({ getRegion: () => 'test-region' }),
+            service: {
+                custom: {
+                    'sqs-alarms': {
+                        alarms: [{ queue: 'test-queue', topic: 'test-topic', thresholds: [1, 2, 3] }],
+                    },
+                },
+                provider: {
+                    compiledCloudFormationTemplate: {
+                        Resources: {},
+                    },
+                },
+            },
+        };
+    });
 
-  const data = config.service.provider.compiledCloudFormationTemplate.Resources
+    it('creates CloudFormation configuration', () => {
+        const test = new Plugin(config);
+        test.beforeDeployResources();
 
-  expect(data).toHaveProperty('testqueueMessageAlarm3')
-  expect(data).toHaveProperty('testqueueMessageAlarm3.Type', 'AWS::CloudWatch::Alarm')
-  expect(data).toHaveProperty('testqueueMessageAlarm3.Properties')
-  expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.AlarmDescription', 'Alarm if queue contains more than 3 messages')
-  expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.Threshold', 3)
-})
+        const data = config.service.provider.compiledCloudFormationTemplate.Resources;
 
-describe('alarm name', () => {
-  let config
+        expect(data).toHaveProperty('testqueueMessageAlarm3');
+        expect(data).toHaveProperty('testqueueMessageAlarm3.Type', 'AWS::CloudWatch::Alarm');
+        expect(data).toHaveProperty('testqueueMessageAlarm3.Properties');
+        expect(data).toHaveProperty(
+            'testqueueMessageAlarm3.Properties.AlarmDescription',
+            'Alarm if queue contains more than 3 messages'
+        );
+        expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.Threshold', 3);
+    });
 
-  beforeEach(() => {
-    config = {
-      getProvider: () => ({ getRegion: () => 'test-region' }),
-      service: {
-        custom: {
-          'sqs-alarms': [
-            { queue: 'test-queue',
-              topic: 'test-topic',
-              thresholds: [1, 2, 3]
-            }
-          ]
-        },
-        provider: {
-          compiledCloudFormationTemplate: {
-            Resources: {}
-          }
-        }
-      }
-    }
-  })
+    describe('alarm name', () => {
+        describe('is given', () => {
+            it('adds alarm name to CloudFormation configuration', () => {
+                config.service.custom['sqs-alarms'].alarms[0].name = 'alarm';
 
-  describe('is given', () => {
-    it('adds alarm name to CloudFormation configuration', () => {
-      config.service.custom['sqs-alarms'][0].name = 'alarm'
+                const test = new Plugin(config);
+                test.beforeDeployResources();
 
-      const test = new Plugin(config)
-      test.beforeDeployResources()
+                const data = config.service.provider.compiledCloudFormationTemplate.Resources;
 
-      const data = config.service.provider.compiledCloudFormationTemplate.Resources
+                expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.AlarmName', 'alarm-test-queue-3');
+            });
+        });
 
-      expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.AlarmName', 'alarm-test-queue-3')
-    })
-  })
+        describe('is not given', () => {
+            it('adds no alarm name to CloudFormation configuration', () => {
+                const test = new Plugin(config);
+                test.beforeDeployResources();
 
-  describe('is not given', () => {
-    it('adds no alarm name to CloudFormation configuration', () => {
-      const test = new Plugin(config)
-      test.beforeDeployResources()
+                const data = config.service.provider.compiledCloudFormationTemplate.Resources;
 
-      const data = config.service.provider.compiledCloudFormationTemplate.Resources
+                expect(data).not.toHaveProperty('testqueueMessageAlarm3.Properties.AlarmName');
+            });
+        });
+    });
 
-      expect(data).not.toHaveProperty('testqueueMessageAlarm3.Properties.AlarmName')
-    })
-  })
-})
-
-it('creates alarms for multiple queues', () => {
-  let config = {
-    getProvider: () => ({ getRegion: () => 'test-region' }),
-    service: {
-      custom: {
-        'sqs-alarms': [
-          {
-            queue: 'test-queue',
-            topic: 'test-topic',
-            thresholds: [1, 2]
-          },
-          {
+    it('creates alarms for multiple queues', () => {
+        config.service.custom['sqs-alarms'].alarms.push({
             queue: 'test-queue-2',
             topic: 'test-topic',
-            thresholds: [1, 2]
-          }
-        ]
-      },
-      provider: {
-        compiledCloudFormationTemplate: {
-          Resources: {}
-        }
-      }
-    }
-  }
+            thresholds: [1, 2],
+        });
 
-  const test = new Plugin(config)
-  test.beforeDeployResources()
+        const test = new Plugin(config);
+        test.beforeDeployResources();
 
-  const data = config.service.provider.compiledCloudFormationTemplate.Resources
+        const data = config.service.provider.compiledCloudFormationTemplate.Resources;
 
-  expect(data).toHaveProperty('testqueueMessageAlarm1')
-  expect(data).toHaveProperty('testqueueMessageAlarm2')
-  expect(data).toHaveProperty('testqueue2MessageAlarm1')
-  expect(data).toHaveProperty('testqueue2MessageAlarm2')
-})
+        expect(data).toHaveProperty('testqueueMessageAlarm1');
+        expect(data).toHaveProperty('testqueueMessageAlarm2');
+        expect(data).toHaveProperty('testqueueMessageAlarm3');
+        expect(data).toHaveProperty('testqueue2MessageAlarm1');
+        expect(data).toHaveProperty('testqueue2MessageAlarm2');
+    });
 
-it('does not fail without configuration', () => {
-  let config = {
-    getProvider: () => ({ getRegion: () => 'test-region' }),
-    service: {
-      custom: { },
-      provider: {
-        compiledCloudFormationTemplate: {
-          Resources: {}
-        }
-      }
-    }
-  }
+    it('does not fail without configuration', () => {
+        delete config.service.custom['sqs-alarms'];
 
-  const test = new Plugin(config)
-  test.beforeDeployResources()
+        const test = new Plugin(config);
+        test.beforeDeployResources();
 
-  const data = config.service.provider.compiledCloudFormationTemplate.Resources
+        const data = config.service.provider.compiledCloudFormationTemplate.Resources;
 
-  expect(data).not.toHaveProperty('testqueueMessageAlarm3')
-})
+        expect(data).not.toHaveProperty('testqueueMessageAlarm3');
+    });
 
-describe('alarm treatMissingData', () => {
-  let config
+    describe('alarm treatMissingData', () => {
+        describe('is not provided', () => {
+            it('adds alarm without treatMissingData property', () => {
+                const test = new Plugin(config);
+                test.beforeDeployResources();
 
-  beforeEach(() => {
-    config = {
-      getProvider: () => ({ getRegion: () => 'test-region' }),
-      service: {
-        custom: {
-          'sqs-alarms': [
-            { queue: 'test-queue',
-              topic: 'test-topic',
-              thresholds: [1, 2, 3]
-            }
-          ]
-        },
-        provider: {
-          compiledCloudFormationTemplate: {
-            Resources: {}
-          }
-        }
-      }
-    }
-  })
+                const data = config.service.provider.compiledCloudFormationTemplate.Resources;
+                expect(data).not.toHaveProperty('testqueueMessageAlarm3.Properties.TreatMissingData');
+            });
+        });
 
-  describe('is not provided', () => {
-    it('adds alarm without treatMissingData property', () => {
-      const test = new Plugin(config)
-      test.beforeDeployResources()
+        describe('is provided as a string of of a valid type', () => {
+            it('adds alarms with treatMissingData property set to value for all alarms', () => {
+                config.service.custom['sqs-alarms'].alarms[0].treatMissingData = 'notBreaching';
 
-      const data = config.service.provider.compiledCloudFormationTemplate.Resources
-      expect(data).not.toHaveProperty('testqueueMessageAlarm3.Properties.TreatMissingData')
-    })
-  })
+                const test = new Plugin(config);
+                test.beforeDeployResources();
 
-  describe('is provided as a string of of a valid type', () => {
-    it('adds alarms with treatMissingData property set to value for all alarms', () => {
-      config.service.custom['sqs-alarms'][0].treatMissingData = 'notBreaching'
+                const data = config.service.provider.compiledCloudFormationTemplate.Resources;
 
-      const test = new Plugin(config)
-      test.beforeDeployResources()
+                expect(data).toHaveProperty('testqueueMessageAlarm1.Properties.TreatMissingData', 'notBreaching');
+                expect(data).toHaveProperty('testqueueMessageAlarm2.Properties.TreatMissingData', 'notBreaching');
+                expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.TreatMissingData', 'notBreaching');
+            });
+        });
 
-      const data = config.service.provider.compiledCloudFormationTemplate.Resources
+        describe('is provided as a string an invalid type', () => {
+            it('adds alarms with treatMissingData property set to value for all alarms', () => {
+                config.service.custom['sqs-alarms'].alarms[0].treatMissingData = 'invalid';
 
-      expect(data).toHaveProperty('testqueueMessageAlarm1.Properties.TreatMissingData', 'notBreaching')
-      expect(data).toHaveProperty('testqueueMessageAlarm2.Properties.TreatMissingData', 'notBreaching')
-      expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.TreatMissingData', 'notBreaching')
-    })
-  })
+                const test = new Plugin(config);
+                test.beforeDeployResources();
 
-  describe('is provided as a string an invalid type', () => {
-    it('adds alarms with treatMissingData property set to value for all alarms', () => {
-      config.service.custom['sqs-alarms'][0].treatMissingData = 'invalid'
+                const data = config.service.provider.compiledCloudFormationTemplate.Resources;
 
-      const test = new Plugin(config)
-      test.beforeDeployResources()
+                expect(data).not.toHaveProperty('testqueueMessageAlarm1.Properties.TreatMissingData');
+                expect(data).not.toHaveProperty('testqueueMessageAlarm2.Properties.TreatMissingData');
+                expect(data).not.toHaveProperty('testqueueMessageAlarm3.Properties.TreatMissingData');
+            });
+        });
 
-      const data = config.service.provider.compiledCloudFormationTemplate.Resources
+        describe('is provided as an array of strings of valid types', () => {
+            it('adds alarms with treatMissingData property set to corresponding value', () => {
+                config.service.custom['sqs-alarms'].alarms[0].treatMissingData = [
+                    'notBreaching',
+                    'breaching',
+                    'ignore',
+                ];
 
-      expect(data).not.toHaveProperty('testqueueMessageAlarm1.Properties.TreatMissingData')
-      expect(data).not.toHaveProperty('testqueueMessageAlarm2.Properties.TreatMissingData')
-      expect(data).not.toHaveProperty('testqueueMessageAlarm3.Properties.TreatMissingData')
-    })
-  })
+                const test = new Plugin(config);
+                test.beforeDeployResources();
 
-  describe('is provided as an array of strings of valid types', () => {
-    it('adds alarms with treatMissingData property set to corresponding value', () => {
-      config.service.custom['sqs-alarms'][0].treatMissingData = ['notBreaching', 'breaching', 'ignore']
+                const data = config.service.provider.compiledCloudFormationTemplate.Resources;
 
-      const test = new Plugin(config)
-      test.beforeDeployResources()
+                expect(data).toHaveProperty('testqueueMessageAlarm1.Properties.TreatMissingData', 'notBreaching');
+                expect(data).toHaveProperty('testqueueMessageAlarm2.Properties.TreatMissingData', 'breaching');
+                expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.TreatMissingData', 'ignore');
+            });
 
-      const data = config.service.provider.compiledCloudFormationTemplate.Resources
+            it('adds alarms with treatMissingData to only the alarms with matching index', () => {
+                config.service.custom['sqs-alarms'].alarms[0].treatMissingData = ['notBreaching', 'breaching'];
 
-      expect(data).toHaveProperty('testqueueMessageAlarm1.Properties.TreatMissingData', 'notBreaching')
-      expect(data).toHaveProperty('testqueueMessageAlarm2.Properties.TreatMissingData', 'breaching')
-      expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.TreatMissingData', 'ignore')
-    })
+                const test = new Plugin(config);
+                test.beforeDeployResources();
 
-    it('adds alarms with treatMissingData to only the alarms with matching index', () => {
-      config.service.custom['sqs-alarms'][0].treatMissingData = ['notBreaching', 'breaching']
+                const data = config.service.provider.compiledCloudFormationTemplate.Resources;
 
-      const test = new Plugin(config)
-      test.beforeDeployResources()
+                expect(data).toHaveProperty('testqueueMessageAlarm1.Properties.TreatMissingData', 'notBreaching');
+                expect(data).toHaveProperty('testqueueMessageAlarm2.Properties.TreatMissingData', 'breaching');
+                expect(data).not.toHaveProperty('testqueueMessageAlarm3.Properties.TreatMissingData');
+            });
 
-      const data = config.service.provider.compiledCloudFormationTemplate.Resources
+            it('adds alarms with treatMissingData ignoring ivalid types', () => {
+                config.service.custom['sqs-alarms'].alarms[0].treatMissingData = ['notBreaching', 'invalid', 'missing'];
 
-      expect(data).toHaveProperty('testqueueMessageAlarm1.Properties.TreatMissingData', 'notBreaching')
-      expect(data).toHaveProperty('testqueueMessageAlarm2.Properties.TreatMissingData', 'breaching')
-      expect(data).not.toHaveProperty('testqueueMessageAlarm3.Properties.TreatMissingData')
-    })
+                const test = new Plugin(config);
+                test.beforeDeployResources();
 
-    it('adds alarms with treatMissingData ignoring ivalid types', () => {
-      config.service.custom['sqs-alarms'][0].treatMissingData = ['notBreaching', 'invalid', 'missing']
+                const data = config.service.provider.compiledCloudFormationTemplate.Resources;
 
-      const test = new Plugin(config)
-      test.beforeDeployResources()
+                expect(data).toHaveProperty('testqueueMessageAlarm1.Properties.TreatMissingData', 'notBreaching');
+                expect(data).not.toHaveProperty('testqueueMessageAlarm2.Properties.TreatMissingData');
+                expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.TreatMissingData', 'missing');
+            });
+        });
+    });
 
-      const data = config.service.provider.compiledCloudFormationTemplate.Resources
+    it('creates CloudFormation configuration with custom thresholds', () => {
+        config = {
+            getProvider: () => ({ getRegion: () => 'test-region' }),
+            service: {
+                custom: {
+                    'sqs-alarms': {
+                        alarms: [
+                            {
+                                queue: 'test-queue',
+                                topic: 'test-topic',
+                                thresholds: [
+                                    {
+                                        value: 1,
+                                        period: 5,
+                                        evaluationPeriods: 1,
+                                    },
+                                    {
+                                        value: 2,
+                                        period: 5,
+                                        evaluationPeriods: 1,
+                                    },
+                                    {
+                                        value: 3,
+                                        period: 5,
+                                        evaluationPeriods: 1,
+                                        namespace: 'test',
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                },
+                provider: {
+                    compiledCloudFormationTemplate: {
+                        Resources: {},
+                    },
+                },
+            },
+        };
 
-      expect(data).toHaveProperty('testqueueMessageAlarm1.Properties.TreatMissingData', 'notBreaching')
-      expect(data).not.toHaveProperty('testqueueMessageAlarm2.Properties.TreatMissingData')
-      expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.TreatMissingData', 'missing')
-    })
-  })
-})
+        const test = new Plugin(config);
+        test.beforeDeployResources();
 
-it('creates CloudFormation configuration with custom thresholds', () => {
-  let config = {
-    getProvider: () => ({ getRegion: () => 'test-region' }),
-    service: {
-      custom: {
-        'sqs-alarms': [
-          {
-            queue: 'test-queue',
-            topic: 'test-topic',
-            thresholds: [
-              {
-                value: 1,
-                period: 5,
-                evaluationPeriods: 1
-              },
-              {
-                value: 2,
-                period: 5,
-                evaluationPeriods: 1
-              },
-              {
-                value: 3,
-                period: 5,
-                evaluationPeriods: 1,
-                namespace: 'test'
-              }
-            ]
-          }
-        ]
-      },
-      provider: {
-        compiledCloudFormationTemplate: {
-          Resources: {}
-        }
-      }
-    }
-  }
+        const data = config.service.provider.compiledCloudFormationTemplate.Resources;
 
-  const test = new Plugin(config)
-  test.beforeDeployResources()
+        expect(data).toHaveProperty('testqueueMessageAlarm3');
+        expect(data).toHaveProperty('testqueueMessageAlarm3.Type', 'AWS::CloudWatch::Alarm');
+        expect(data).toHaveProperty('testqueueMessageAlarm3.Properties');
+        expect(data).toHaveProperty(
+            'testqueueMessageAlarm3.Properties.AlarmDescription',
+            'Alarm if queue contains more than 3 messages'
+        );
+        expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.Threshold', 3);
+        expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.EvaluationPeriods', 1);
+        expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.Period', 5);
+        expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.Namespace', 'test');
+    });
 
-  const data = config.service.provider.compiledCloudFormationTemplate.Resources
+    describe('stages', () => {
+        let options;
+        let utils;
+        beforeEach(() => {
+            options = { stage: 'dev' };
+            utils = {
+                log: () => {}, //do nothing
+            };
+        });
 
-  expect(data).toHaveProperty('testqueueMessageAlarm3')
-  expect(data).toHaveProperty('testqueueMessageAlarm3.Type', 'AWS::CloudWatch::Alarm')
-  expect(data).toHaveProperty('testqueueMessageAlarm3.Properties')
-  expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.AlarmDescription', 'Alarm if queue contains more than 3 messages')
-  expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.Threshold', 3)
-  expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.EvaluationPeriods', 1)
-  expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.Period', 5)
-  expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.Namespace', 'test')
-})
+        it('creates CloudFormation configuration when stages are not defined', () => {
+            const test = new Plugin(config, options, utils);
+            test.beforeDeployResources();
+
+            const data = config.service.provider.compiledCloudFormationTemplate.Resources;
+
+            expect(data).toHaveProperty('testqueueMessageAlarm3');
+            expect(data).toHaveProperty('testqueueMessageAlarm3.Type', 'AWS::CloudWatch::Alarm');
+            expect(data).toHaveProperty('testqueueMessageAlarm3.Properties');
+            expect(data).toHaveProperty(
+                'testqueueMessageAlarm3.Properties.AlarmDescription',
+                'Alarm if queue contains more than 3 messages'
+            );
+            expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.Threshold', 3);
+        });
+
+        it('creates CloudFormation configuration when stages are defined and current stage IS in the list', () => {
+            config.service.custom['sqs-alarms'].stages = ['dev'];
+
+            const test = new Plugin(config, options, utils);
+            test.beforeDeployResources();
+
+            const data = config.service.provider.compiledCloudFormationTemplate.Resources;
+
+            expect(data).toHaveProperty('testqueueMessageAlarm3');
+            expect(data).toHaveProperty('testqueueMessageAlarm3.Type', 'AWS::CloudWatch::Alarm');
+            expect(data).toHaveProperty('testqueueMessageAlarm3.Properties');
+            expect(data).toHaveProperty(
+                'testqueueMessageAlarm3.Properties.AlarmDescription',
+                'Alarm if queue contains more than 3 messages'
+            );
+            expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.Threshold', 3);
+        });
+
+        it('does not create CloudFormation configuration when stages are defined and current stage IS NOT in the list', () => {
+            config.service.custom['sqs-alarms'].stages = ['live'];
+
+            const test = new Plugin(config, options, utils);
+            test.beforeDeployResources();
+
+            const data = config.service.provider.compiledCloudFormationTemplate.Resources;
+
+            expect(data).not.toHaveProperty('testqueueMessageAlarm3');
+        });
+    });
+});
+

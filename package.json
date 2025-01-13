@@ -29,6 +29,9 @@
     "snazzy": "^6.0.0",
     "standard": "^9.0.2"
   },
+  "peerDependencies": {
+    "serverless": "3"
+  },
   "standard": {
     "envs": [
       "node",
