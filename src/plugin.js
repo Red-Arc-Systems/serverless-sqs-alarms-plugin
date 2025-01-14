@@ -44,7 +44,7 @@ class Alarm {
     }
   }
 
-  ressources () {
+  resources () {
     return this.thresholds.map(
       (props, i) => {
         const properties = this.resourceProperties(props)
@@ -94,8 +94,10 @@ class Alarm {
 }
 
 class Plugin {
-  constructor (serverless, options) {
+  constructor (serverless, options, utils) {
     this.serverless = serverless
+    this.options = options // CLI options
+    this.utils = utils
     this.hooks = {
       'package:compileEvents': this.beforeDeployResources.bind(this)
     }
@@ -106,16 +108,24 @@ class Plugin {
       return
     }
 
-    const alarms = this.serverless.service.custom['sqs-alarms'].map(
+    if (
+      Array.isArray(this.serverless.service.custom['sqs-alarms'].stages) &&
+      !this.serverless.service.custom['sqs-alarms'].stages.includes(this.options.stage)
+    ) {
+      this.utils.log(`Info: Not deploying dashboards on stage ${this.options.stage}`);
+      return;
+    }
+
+    const alarms = this.serverless.service.custom['sqs-alarms'].alarms.map(
       data => new Alarm(data, this.serverless.getProvider('aws').getRegion())
     )
 
     alarms.forEach(
-      alarm => alarm.ressources().forEach(
-        ressource => {
+      alarm => alarm.resources().forEach(
+        resource => {
           _.merge(
             this.serverless.service.provider.compiledCloudFormationTemplate.Resources,
-            ressource
+            resource
           )
         }
       )

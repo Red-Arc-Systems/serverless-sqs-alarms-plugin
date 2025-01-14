@@ -7,7 +7,7 @@
 
 ## About the plugin
 
-This serverless plugin is a wrapper to configure CloudWatch Alarms to monitor the visible messages in an SQS queue. You need to provide the SQS *queue name* and SNS *topic* which will receive the `Alarm` and `OK` messages.
+This serverless plugin is a wrapper to configure CloudWatch Alarms to monitor the visible messages in an SQS queue. You need to provide the SQS _queue name_ and SNS _topic_ which will receive the `Alarm` and `OK` messages.
 
 ## Usage
 
@@ -25,23 +25,27 @@ Add the plugin to your `serverless.yml`:
 
 ```yaml
 plugins:
-  - serverless-sqs-alarms-plugin
+    - serverless-sqs-alarms-plugin
 ```
 
 Configure alarms in `serverless.yml`:
 
 ```yaml
 custom:
-  sqs-alarms:
-    - queue: your-sqs-queue-name
-      topic: your-sns-topic-name
-      name: your-alarm-name # optional parameter
-      thresholds:
-        - 1
-        - 50
-        - 100
-        - 500
-      treatMissingData: string | array[] # optional parameter
+    sqs-alarms:
+        stages:
+            - dev
+            - live
+        alarms:
+            - queue: your-sqs-queue-name
+              topic: your-sns-topic-name
+              name: your-alarm-name # optional parameter
+              thresholds:
+                  - 1
+                  - 50
+                  - 100
+                  - 500
+              treatMissingData: string | array[] # optional parameter
 ```
 
 > The `treatMissingData` setting can be a string which is applied to all alarms, or an array to configure alarms individually. Valid types are `ignore, missing, breaching, notBreaching`, [more details in the AWS docs …](http://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarms-and-missing-data)
@@ -54,29 +58,29 @@ The created CloudWatch Alarms look like this:
 
 ```json
 {
-  "Type": "AWS::CloudWatch::Alarm",
-  "Properties": {
-    "AlarmDescription": "Alarm if queue contains more than 100 messages",
-    "Namespace": "AWS/SQS",
-    "MetricName": "ApproximateNumberOfMessagesVisible",
-    "Dimensions": [
-      {
-        "Name": "QueueName",
-        "Value": "your-sqs-queue-name"
-      }
-    ],
-    "Statistic": "Sum",
-    "Period": 60,
-    "EvaluationPeriods": 1,
-    "Threshold": 100,
-    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
-    "AlarmActions": [
-      { "Fn::Join": [ "", [ "arn:aws:sns:eu-west-1:", { "Ref": "AWS::AccountId" }, ":your-sns-topic-name" ] ] }
-    ],
-    "OKActions": [
-      { "Fn::Join": [ "", [ "arn:aws:sns:eu-west-1:", { "Ref": "AWS::AccountId" }, ":your-sns-topic-name" ] ] }
-    ]
-  }
+    "Type": "AWS::CloudWatch::Alarm",
+    "Properties": {
+        "AlarmDescription": "Alarm if queue contains more than 100 messages",
+        "Namespace": "AWS/SQS",
+        "MetricName": "ApproximateNumberOfMessagesVisible",
+        "Dimensions": [
+            {
+                "Name": "QueueName",
+                "Value": "your-sqs-queue-name"
+            }
+        ],
+        "Statistic": "Sum",
+        "Period": 60,
+        "EvaluationPeriods": 1,
+        "Threshold": 100,
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "AlarmActions": [
+            { "Fn::Join": ["", ["arn:aws:sns:eu-west-1:", { "Ref": "AWS::AccountId" }, ":your-sns-topic-name"]] }
+        ],
+        "OKActions": [
+            { "Fn::Join": ["", ["arn:aws:sns:eu-west-1:", { "Ref": "AWS::AccountId" }, ":your-sns-topic-name"]] }
+        ]
+    }
 }
 ```
 
@@ -87,3 +91,4 @@ Feel free to use the code, it's released using the [MIT license](https://github.
 ## Contribution
 
 Feel free to contribute to this project! Thanks 😘
+
