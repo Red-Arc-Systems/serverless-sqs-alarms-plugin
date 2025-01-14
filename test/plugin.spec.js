@@ -295,5 +295,37 @@ describe('SQS Alarms Plugin', () => {
             expect(data).not.toHaveProperty('testqueueMessageAlarm3');
         });
     });
+
+    describe('okAlerts', () => {
+        it('is undefined then OKActions is set', () => {
+            const test = new Plugin(config);
+            test.beforeDeployResources();
+
+            const data = config.service.provider.compiledCloudFormationTemplate.Resources;
+
+            expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.OKActions');
+        });
+
+        it('is true then OKActions is set', () => {
+            const test = new Plugin(config);
+            test.beforeDeployResources();
+
+            const data = config.service.provider.compiledCloudFormationTemplate.Resources;
+
+            expect(data).toHaveProperty('testqueueMessageAlarm3.Properties.OKActions');
+        });
+
+        it('is false then OKActions is not set', () => {
+            config.service.custom['sqs-alarms'].alarms[0].okAlerts = false;
+            const test = new Plugin(config);
+            test.beforeDeployResources();
+
+            const data = config.service.provider.compiledCloudFormationTemplate.Resources;
+
+            expect(data).not.toHaveProperty('testqueueMessageAlarm1.Properties.OKActions');
+            expect(data).not.toHaveProperty('testqueueMessageAlarm2.Properties.OKActions');
+            expect(data).not.toHaveProperty('testqueueMessageAlarm3.Properties.OKActions');
+        });
+    });
 });
 
